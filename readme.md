@@ -1,73 +1,37 @@
 # Memora
 
-Memora is a memory middleware server for AI applications.
+Memora is a memory middleware server for AI applications. It gives agents and LLM-powered systems a persistent memory layer for storing facts, retrieving relevant context, inspecting stored records, and assembling prompt-ready memory payloads.
 
-It gives agents and LLM-powered apps a persistent memory layer they can write to, retrieve from, inspect, and turn into prompt-ready context.
+This repository contains the backend API service for Memora. It runs on FastAPI, stores data in PostgreSQL with `pgvector`, and uses OpenAI embeddings for semantic retrieval.
 
-Think:
+## What It Does
 
-- a drop-in memory server for AI apps
-- an opinionated context engine on top of Postgres + pgvector
-- infrastructure for long-term memory, not a chatbot and not a generic RAG wrapper
+Memora provides a focused memory API for applications that need long-term context:
 
-## What Memora Is
+- store user, project, and task memory records
+- retrieve relevant memories for a query
+- rank results beyond raw vector similarity
+- build prompt-ready context for model calls
+- inspect and delete stored memories
 
-Memora is a service that helps AI applications:
-
-- store memories over time
-- retrieve the most relevant memories for a task
-- rank memories using more than raw vector similarity
-- build LLM-ready context payloads
-- inspect what was remembered and why it was returned
-
-Memora sits between your application and your model stack. Your app sends memory events into Memora, and asks Memora for the best context to inject into prompts.
-
-If you need cross-model answer comparison, agent orchestration, or conversational UX, those belong outside Memora.
-
-## Core Use Cases
-
-- Persist user preferences, tasks, constraints, and long-term facts
-- Rehydrate relevant context for an agent or LLM call
-- Keep memory scoped by user, project, or workspace
-- Inspect retrieval quality when prompts go wrong
-- Control memory lifecycle with expiration and metadata
-
-## v1 Product Contract
-
-Memora does the following:
-
-1. Accept memories from an application
-2. Retrieve and rank relevant memories for a query
-3. Build prompt-ready context from retrieved memories
-4. Let developers inspect and delete stored memories
-5. Expose enough metadata to debug memory quality
+Memora sits between your application and your model stack. Your application writes memory events into Memora and queries Memora before an LLM call to retrieve the most useful context.
 
 ## Current Scope
 
-The current repository is focused on the backend memory gateway:
+The current project includes:
 
-- FastAPI service
-- API-key protected memory APIs
-- PostgreSQL + pgvector storage
-- OpenAI embeddings
-- semantic retrieval
-- ranked context assembly
-- inspection and deletion APIs
+- FastAPI API service
+- API key authentication for memory endpoints
+- PostgreSQL + `pgvector` persistence
+- OpenAI embedding generation
+- memory write, search, context, inspect, and delete endpoints
+- database migrations with Alembic
+- local development with `uv`
+- Docker Compose for local infrastructure
 
-Not in scope yet:
-
-- dashboard UI
-- SDKs
-- async summarization workers
-- hybrid keyword/vector retrieval
-- advanced policy engines
-- hosted multi-tenant control plane
+This repository does not include a dashboard UI, SDKs, background workers, or a hosted control plane.
 
 ## Architecture
-
-Memora is designed as infrastructure middleware.
-
-Applications connect to a running Memora server:
 
 ```text
 Your App / Agent
@@ -79,31 +43,37 @@ Your App / Agent
 Postgres + pgvector
 ```
 
-Typical flow:
+Typical request flow:
 
-1. Your app writes notable events, preferences, facts, and tasks into Memora
-2. Your app asks Memora for context before an LLM call
-3. Memora retrieves, ranks, and formats the best memories
-4. Your app injects that context into the prompt it sends to the model
+1. Your application writes notable events, preferences, tasks, and facts into Memora.
+2. Your application requests relevant context before an LLM call.
+3. Memora retrieves, ranks, and formats the best matching memories.
+4. Your application injects the returned context into the prompt sent to the model.
 
-## API Surface
+## API Overview
 
-The backend is exposed under `/api/v1`.
+The API is exposed under `/api/v1`.
 
-Core endpoints:
+Endpoints:
 
+- `GET /health`
 - `POST /memory/write`
 - `POST /memory/search`
 - `POST /memory/context`
 - `POST /memory/inspect`
 - `DELETE /memory/{memory_id}`
-- `GET /health`
 
-All `/memory/*` endpoints require an `X-API-Key` header.
+All `/memory/*` endpoints require the `X-API-Key` header.
 
-### Memory Write
+### Health Check
 
-Store a memory for later retrieval.
+`GET /health` returns service status, service name, and version.
+
+### Write Memory
+
+`POST /memory/write`
+
+Stores a memory record and returns the created object.
 
 Example request:
 
@@ -117,35 +87,91 @@ Example request:
   "metadata": {
     "channel": "support"
   },
+  "importance_score": 0.8,
   "ttl_days": 90
 }
 ```
 
-### Memory Search
+### Search Memory
 
-Retrieve ranked memories for a query.
+`POST /memory/search`
 
-Search ranking should consider:
+Returns ranked memory results for a query.
+
+Example request:
+
+```json
+{
+  "user_id": "user-123",
+  "project_id": "project-alpha",
+  "query": "backend preferences",
+  "limit": 5,
+  "include_expired": false
+}
+```
+
+Ranking combines:
 
 - semantic similarity
-- memory importance
+- importance score
 - freshness
-- prior accesses
+- prior access patterns
 
-### Memory Context
+### Build Context
 
-Build LLM-ready context from the best retrieved memories within a budget.
+`POST /memory/context`
 
-The purpose of this endpoint is not to return raw nearest neighbors only. It should return a context payload your app can place into prompts directly.
+Returns a prompt-ready context block plus the underlying ranked results.
 
-### Memory Inspect
+Example request:
 
-List stored memories for a user or project so developers can inspect quality and delete polluted or stale entries.
+```json
+{
+  "user_id": "user-123",
+  "project_id": "project-alpha",
+  "query": "backend architecture preferences",
+  "limit": 8,
+  "max_chars": 2000,
+  "include_expired": false
+}
+```
 
-## Data Model
+### Inspect Memories
 
-Each memory should carry:
+`POST /memory/inspect`
 
+Lists stored memories for a user or project so developers can review stored state and remove bad entries.
+
+Example request:
+
+```json
+{
+  "user_id": "user-123",
+  "project_id": "project-alpha",
+  "limit": 25,
+  "include_expired": true
+}
+```
+
+### Delete Memory
+
+`DELETE /memory/{memory_id}`
+
+Deletes a memory record for the specified `user_id`.
+
+Example request body:
+
+```json
+{
+  "user_id": "user-123"
+}
+```
+
+## Stored Memory Shape
+
+Stored records include these core fields:
+
+- `id`
 - `user_id`
 - `project_id`
 - `raw_text`
@@ -159,130 +185,103 @@ Each memory should carry:
 - `last_accessed_at`
 - `expires_at`
 
-## Ranking Philosophy
-
-Memora ranks memories better than a plain vector store.
-
-Raw similarity alone is not enough. Memora bias toward memories that are:
-
-- semantically relevant
-- still fresh
-- likely to matter long-term
-- repeatedly useful
-
-That is the beginning of Memora's product value.
-
-## Roadmap
-
-### Credible v1
-
-- FastAPI backend
-- Postgres + pgvector
-- memory write/search/context/inspect/delete
-- OpenAI embeddings
-- ranked retrieval
-- Docker Compose
-
-### Next
-
-- inspector dashboard
-- SDKs for Python and TypeScript
-- summarization workers
-- richer memory policies
-- provider abstraction for summarization and reranking
-- hybrid retrieval
-
-### Later
-
-- team/shared memory
-- retrieval analytics
-- observability dashboards
-- hosted cloud version
-
-## Open Source Goal
-
-This project is intended to be open-source infrastructure for developers building AI-native products.
-
-The promise to contributors and users should stay clear:
-
-- Memora helps applications manage long-term memory
-- Memora improves retrieval quality and context assembly
-- Memora gives developers visibility into remembered state
-- Memora does not try to become every AI tool at once
-
 ## Local Development
 
-Requirements:
+### Requirements
 
+- Python 3.12+
 - `uv`
 - Docker
 - an OpenAI API key
 
-Environment:
+### Environment
+
+Copy `.env.example` to `.env` and set the required values:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://memora:memora@db:5432/memora
-OPENAI_API_KEY=your_key
+DATABASE_URL=postgresql+asyncpg://memora:memora@localhost:5432/memora
+OPENAI_API_KEY=your_openai_api_key
 MEMORA_API_KEY=your_memora_api_key
 EMBEDDING_MODEL_NAME=text-embedding-3-small
 EMBEDDING_DIMENSIONS=1536
 ```
 
-Install dependencies:
+Use `localhost` when you run the API with `make dev`. Use `db` as the database host when the API runs inside Docker Compose.
+
+### Install
 
 ```bash
 cp .env.example .env
 make install
 ```
 
-Apply migrations:
-
-```bash
-make migrate
-```
-
-Run locally:
-
-```bash
-make dev
-```
-
-Run tests:
-
-```bash
-make test
-```
-
-Run a quick compile check:
-
-```bash
-make compile
-```
-
-Refresh the lockfile:
-
-```bash
-make lock
-```
-
-Run with Docker:
+### Start PostgreSQL
 
 ```bash
 make docker-up
 ```
 
-API docs:
+The API service is also included in `docker-compose.yml`. If you want to run the full stack in containers, use Docker Compose for both the API and PostgreSQL. If you want to run the API on your host with `make dev`, keep PostgreSQL running and use `localhost` in `DATABASE_URL`.
 
-- [http://localhost:8000/docs](http://localhost:8000/docs)
+### Apply Migrations
 
-## Near-Term Priorities
+```bash
+make migrate
+```
 
-If you are contributing to Memora, prioritize these in order:
+### Run the API
 
-1. retrieval quality
-2. context assembly quality
-3. inspectability
-4. lifecycle controls
-5. summarization and policy automation
+```bash
+make dev
+```
 
-Those are the foundations of the product. Everything else is secondary until those are solid.
+By default, the development server runs at [http://localhost:8000](http://localhost:8000).
+
+### Run Tests
+
+```bash
+make test
+```
+
+### Run a Compile Check
+
+```bash
+make compile
+```
+
+## Example Usage
+
+Write a memory:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/memory/write \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_memora_api_key" \
+  -d '{
+    "user_id": "user-123",
+    "project_id": "project-alpha",
+    "text": "User prefers FastAPI for backend work.",
+    "source": "chat",
+    "tags": ["preference", "backend"],
+    "metadata": {"channel": "support"}
+  }'
+```
+
+Build prompt-ready context:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/memory/context \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_memora_api_key" \
+  -d '{
+    "user_id": "user-123",
+    "project_id": "project-alpha",
+    "query": "backend architecture preferences",
+    "limit": 5,
+    "max_chars": 1200
+  }'
+```
+
+## Version
+
+Current application version: `0.1.0`

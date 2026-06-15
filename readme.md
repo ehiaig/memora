@@ -20,37 +20,7 @@ Memora is a service that helps AI applications:
 - build LLM-ready context payloads
 - inspect what was remembered and why it was returned
 
-The product boundary is important:
-
-- Memora is not an end-user chat interface
-- Memora is not a model gateway
-- Memora is not a replacement for your app database
-- Memora is not just a vector index
-
 Memora sits between your application and your model stack. Your app sends memory events into Memora, and asks Memora for the best context to inject into prompts.
-
-## Positioning
-
-The shortest accurate description is:
-
-> Memora is a drop-in memory server for AI apps and agents.
-
-Useful shorthand:
-
-> Postgres/Redis for AI memory.
-
-That shorthand is directionally helpful, but incomplete. Memora is not trying to be only a low-level storage primitive. It is an opinionated memory layer with retrieval, ranking, context assembly, and inspection.
-
-## What Memora Is Not
-
-Memora is explicitly not:
-
-- a chatbot product
-- a browser extension
-- a model comparison tool
-- a generic "RAG starter kit"
-- a full observability suite for all LLM traffic
-- a replacement for app-specific business logic
 
 If you need cross-model answer comparison, agent orchestration, or conversational UX, those belong outside Memora.
 
@@ -64,15 +34,13 @@ If you need cross-model answer comparison, agent orchestration, or conversationa
 
 ## v1 Product Contract
 
-Memora v1 should do a small set of things well:
+Memora does the following:
 
 1. Accept memories from an application
 2. Retrieve and rank relevant memories for a query
 3. Build prompt-ready context from retrieved memories
 4. Let developers inspect and delete stored memories
 5. Expose enough metadata to debug memory quality
-
-If Memora cannot reliably improve context injection and make retrieval inspectable, it is not yet succeeding at its core job.
 
 ## Current Scope
 
@@ -117,18 +85,6 @@ Typical flow:
 2. Your app asks Memora for context before an LLM call
 3. Memora retrieves, ranks, and formats the best memories
 4. Your app injects that context into the prompt it sends to the model
-
-## Migrations
-
-Memora uses Alembic for schema management. The application no longer creates tables automatically on startup.
-
-Use:
-
-```bash
-make migrate
-```
-
-This keeps the running schema explicit and versioned.
 
 ## API Surface
 
@@ -205,9 +161,9 @@ Each memory should carry:
 
 ## Ranking Philosophy
 
-Memora should rank memories better than a plain vector store.
+Memora ranks memories better than a plain vector store.
 
-Raw similarity alone is not enough. Memora should bias toward memories that are:
+Raw similarity alone is not enough. Memora bias toward memories that are:
 
 - semantically relevant
 - still fresh

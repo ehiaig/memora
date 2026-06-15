@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     database_url: str
     openai_api_key: str
+    memora_api_key: str
     embedding_model_name: str
     embedding_dimensions: int = 1536
 

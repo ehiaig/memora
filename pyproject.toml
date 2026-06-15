@@ -1,0 +1,30 @@
+[project]
+name = "memora"
+version = "0.1.0"
+description = "Memory middleware server for AI applications."
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.12",
+    "uvicorn[standard]==0.34.2",
+    "sqlalchemy==2.0.41",
+    "asyncpg==0.30.0",
+    "psycopg[binary]==3.2.9",
+    "alembic==1.16.1",
+    "pgvector==0.4.1",
+    "pydantic==2.11.5",
+    "pydantic-settings==2.9.1",
+    "python-dotenv==1.1.0",
+    "openai==1.82.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "pytest==8.3.5",
+    "pytest-asyncio==0.26.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

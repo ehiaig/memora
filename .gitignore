@@ -11,3 +11,4 @@ build/
 *.pyd
 *.sqlite3
 alembic/versions/*.pyc
+.uv-cache/

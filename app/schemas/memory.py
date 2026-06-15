@@ -9,7 +9,12 @@ class MemoryBase(BaseModel):
     project_id: str
     raw_text: str
     importance_score: float = 0.0
+    source: str = "user"
+    tags: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
+    access_count: int = 0
+    last_accessed_at: datetime | None = None
+    expires_at: datetime | None = None
 
 
 class MemoryCreate(MemoryBase):
